@@ -43,15 +43,19 @@ class Wallet(object):
         self.btc_balance = btc_balance
         self.brokerage_pct = brokerage_pct
         self.expected_price = 0
+        self.cost = 0
+        self.cost_price = 0
+        self.check_balance()
         
     def check_balance(self):
+        print('Checking Wallet Balance')
         line1 = 'INR Balance:' + str(self.fiat_balance)
         line2 = 'BTC Balance:' + str(self.btc_balance)
         line3 = 'Cost:' + str(self.cost)
-        line4 = 'Cost Price' + str(self.cost_price)
-        line5 = 'Expected Price' + str(self.expected_price)
-        text_file = open("Wallet.txt", "w")
-        text_file.write(line1, line2, line3, line4, line5)
+        line4 = 'Cost Price:' + str(self.cost_price)
+        line5 = 'Expected Price:' + str(self.expected_price)
+        text_file = open("data\\Wallet.txt", "w")
+        text_file.writelines([line1, line2, line3, line4, line5])
         text_file.close()
         print(line1, line2, line3, line4, line5)
         
@@ -69,7 +73,7 @@ class Wallet(object):
     def sell(self, inr_rate, btc_qty): #inr_rate is for per 1000 rupees    
         self.btc_balance = self.btc_balance - btc_qty
         trade_amount = (inr_rate * btc_qty)/1000.0
-        received_amount = fiat_amount * (1 - (self.brokerage_pct/100.0))
+        received_amount = trade_amount * (1 - (self.brokerage_pct/100.0))
         self.fiat_balance = self.fiat_balance + received_amount
         self.check_balance()
         return trade_amount,received_amount
@@ -84,7 +88,8 @@ class TradeBookWriter(object):
         self.sanity_check()
         
     def sanity_check(self):
-        if os.path.exists(self.filename):
+        print('Checking Tradebook availability')
+        if not os.path.exists(self.filepath):
             print('writing file')
             with open(self.filepath, 'w', newline='') as outcsv:
                 writer = csv.DictWriter(outcsv, fieldnames = self.fieldnames)
@@ -107,8 +112,7 @@ class HistoricalDataWriter(object):
         self.sanity_check()
         
     def sanity_check(self):
-        if os.path.exists(self.filename):
-            print('writing file')
+        if not os.path.exists(self.filepath):
             with open(self.filepath, 'w', newline='') as outcsv:
                 writer = csv.DictWriter(outcsv, fieldnames = self.fieldnames)
                 writer.writeheader() 
@@ -158,7 +162,7 @@ def trade_decision(ltp):
     
     print(m1_MA, m3_MA, m5_MA, m10_MA, m20_MA, m30_MA, m60_MA)
 #    Stage 1
-    if ltp < m1_MA and ltp > m5_MA:
+    if ltp < m1_MA and ltp > m5_MA and wallet.fiat_balance > 0:
         buy_score = 1
         buy(ltp)
         
@@ -178,7 +182,7 @@ def poll_price():
     writer.write_row()   
     
 #    Dont trade until enough data is available
-    max_rows = int((60*60)/polling_frequency_seconds)
+    max_rows = int((30*60)/polling_frequency_seconds)
     if len(btc_price_df) > max_rows: 
         trade_decision() #    Identify the trade decision
     
@@ -207,7 +211,7 @@ btc_price_df = pd.DataFrame(columns=writer.fieldnames)
 rt = RepeatedTimer(polling_frequency_seconds, poll_price)
 try:
     rt.start()
-    time.sleep(6000)
+    time.sleep(3800)
 finally:
     rt.stop()
 
